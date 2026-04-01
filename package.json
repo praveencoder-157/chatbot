@@ -1,14 +1,14 @@
 {
-  "name": "two-person-chat",
+  "name": "chat-app-mongodb",
   "version": "1.0.0",
-  "description": "Simple 2 person chat app",
+  "description": "2 person chat with MongoDB",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-"dependencies": {
-  "express": "^4.18.2",
-  "socket.io": "^4.7.2",
-  "mongoose": "^7.0.0"
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "mongoose": "^7.0.0"
   }
 }
