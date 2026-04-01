@@ -1,6 +1,7 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const mongoose = require("mongoose");
 
 const app = express();
 const server = http.createServer(app);
@@ -8,19 +9,51 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-// ✅ SINGLE socket connection block
-io.on("connection", (socket) => {
+// ✅ MongoDB Connection (SAFE)
+mongoose.connect(process.env.MONGO_URI, {
+  serverSelectionTimeoutMS: 5000
+})
+.then(() => console.log("✅ MongoDB Connected"))
+.catch(err => console.log("❌ Mongo Error:", err));
+
+// ✅ Schema
+const messageSchema = new mongoose.Schema({
+  text: String,
+  time: { type: Date, default: Date.now }
+});
+
+const Message = mongoose.model("Message", messageSchema);
+
+// ✅ Socket
+io.on("connection", async (socket) => {
   console.log("🟢 User connected:", socket.id);
 
-  // Receive message
-  socket.on("chat message", (msg) => {
+  // Load old messages safely
+  let messages = [];
+  try {
+    messages = await Message.find().sort({ time: 1 });
+  } catch (err) {
+    console.log("⚠️ Load failed:", err.message);
+  }
+
+  socket.emit("load messages", messages);
+
+  // Send & save message
+  socket.on("chat message", async (msg) => {
     console.log("📩 Message:", msg);
 
-    // Send to ALL users (including sender)
+    // Save safely (won’t crash)
+    try {
+      const newMsg = new Message({ text: msg });
+      await newMsg.save();
+    } catch (err) {
+      console.log("⚠️ Save failed:", err.message);
+    }
+
+    // Always send message (even if DB fails)
     io.emit("chat message", msg);
   });
 
-  // Handle disconnect
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
   });
