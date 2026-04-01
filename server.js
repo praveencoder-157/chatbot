@@ -6,6 +6,13 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+const mongoose = require("mongoose");
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch(err => console.log(err));
+
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
