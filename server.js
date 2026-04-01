@@ -10,9 +10,9 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
-  .catch(err => console.log(err));
+//mongoose.connect(process.env.MONGO_URI)
+//  .then(() => console.log("MongoDB Connected"))
+//  .catch(err => console.log(err));
 
 // Schema
 const messageSchema = new mongoose.Schema({
@@ -20,18 +20,18 @@ const messageSchema = new mongoose.Schema({
   time: { type: Date, default: Date.now }
 });
 
-const Message = mongoose.model("Message", messageSchema);
+//const Message = mongoose.model("Message", messageSchema);
 
 // Socket
 io.on("connection", async (socket) => {
   console.log("User connected");
 
-  const messages = await Message.find().sort({ time: 1 });
+  //const messages = await Message.find().sort({ time: 1 });
   socket.emit("load messages", messages);
 
   socket.on("chat message", async (msg) => {
     const newMsg = new Message({ text: msg });
-    await newMsg.save();
+    //await newMsg.save();
     io.emit("chat message", msg);
   });
 });
