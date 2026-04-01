@@ -13,6 +13,13 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
   .catch(err => console.log(err));
 
+const messageSchema = new mongoose.Schema({
+  text: String,
+  time: { type: Date, default: Date.now }
+});
+
+const Message = mongoose.model("Message", messageSchema);
+
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
