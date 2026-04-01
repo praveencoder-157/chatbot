@@ -45,6 +45,12 @@
 
     const messagesList = document.getElementById("messages");
 
+    socket.on("load messages", function(messages) {
+        messages.forEach(msg => {
+            addMessage(msg.text);
+        });
+    });
+
     // ✅ CONFIRM CONNECTION
     socket.on("connect", () => {
         console.log("✅ Connected:", socket.id);
