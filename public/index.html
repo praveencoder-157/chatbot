@@ -64,6 +64,14 @@
     function scrollBottom() {
         messagesList.scrollTop = messagesList.scrollHeight;
     }
+
+    socket.on("connect", () => {
+    console.log("✅ Socket Connected:", socket.id);
+    });
+
+    socket.on("disconnect", () => {
+    console.log("❌ Socket Disconnected");
+    });
 </script>
 
 </body>
