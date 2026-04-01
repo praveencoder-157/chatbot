@@ -1,154 +1,20 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <title>Private Chat</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { font-family: Arial; background: #ece5dd; margin: 0; }
-        header { background: #075E54; color: white; padding: 15px; text-align: center; }
-        #chat-container { display: flex; flex-direction: column; height: 90vh; }
-        #messages { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; }
-        li { padding: 10px; margin: 5px 0; background: #dcf8c6; border-radius: 8px; max-width: 70%; }
-        #input-area { display: flex; padding: 10px; background: #f0f0f0; }
-        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
-        button { margin-left: 10px; padding: 10px; border: none; background: #25D366; color: white; border-radius: 20px; }
-    </style>
-</head>
-<body>
-
-<header>💬 Private Chat</header>
-
-<div id="chat-container">
-    <ul id="messages"></ul>
-
-    <div id="input-area">
-        <input id="input" placeholder="Type message..." />
-        <button onclick="sendMessage()">Send</button>
-    </div>
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-    const socket = io();
-    const messagesList = document.getElementById("messages");
-
-    socket.on("load messages", function(messages) {
-        messagesList.innerHTML = "";
-        messages.forEach(msg => addMessage(msg.text));
-        scrollBottom();
-    });
-
-    socket.on("chat message", function(msg) {
-        addMessage(msg);
-        scrollBottom();
-    });
-
-    function addMessage(text) {
-        const li = document.createElement("li");
-        li.textContent = text;
-        messagesList.appendChild(li);
-    }
-
-    function sendMessage() {
-        const input = document.getElementById("input");
-        if (input.value.trim() !== "") {
-            socket.emit("chat message", input.value);
-            input.value = "";
-        }
-    }
-
-    document.getElementById("input").addEventListener("keypress", function(e) {
-        if (e.key === "Enter") sendMessage();
-    });
-
-    function scrollBottom() {
-        messagesList.scrollTop = messagesList.scrollHeight;
-    }
-
-    socket.on("connect", () => {
-    console.log("✅ Socket Connected:", socket.id);
-    });
-
-    socket.on("disconnect", () => {
-    console.log("❌ Socket Disconnected");
-    });
-</script>
-
-</body>
-</html>
-<!DOCTYPE html>
 
 <html>
 <head>
-    <title>Private Chat</title>
+    <title>Chat Bot</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 ```
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #ece5dd;
-        margin: 0;
-    }
-
-    header {
-        background: #075E54;
-        color: white;
-        padding: 15px;
-        font-size: 18px;
-        text-align: center;
-    }
-
-    #chat-container {
-        display: flex;
-        flex-direction: column;
-        height: 90vh;
-    }
-
-    #messages {
-        list-style: none;
-        padding: 10px;
-        margin: 0;
-        overflow-y: auto;
-        flex: 1;
-    }
-
-    li {
-        padding: 10px;
-        margin: 5px 0;
-        background: #dcf8c6;
-        border-radius: 8px;
-        max-width: 70%;
-        word-wrap: break-word;
-    }
-
-    #input-area {
-        display: flex;
-        padding: 10px;
-        background: #f0f0f0;
-    }
-
-    input {
-        flex: 1;
-        padding: 10px;
-        border-radius: 20px;
-        border: 1px solid #ccc;
-        outline: none;
-    }
-
-    button {
-        margin-left: 10px;
-        padding: 10px 15px;
-        border: none;
-        background: #25D366;
-        color: white;
-        border-radius: 20px;
-        cursor: pointer;
-    }
-
-    button:hover {
-        background: #20bd5a;
-    }
+    body { font-family: Arial; background: #ece5dd; margin: 0; }
+    header { background: #075E54; color: white; padding: 15px; text-align: center; }
+    #chat-container { display: flex; flex-direction: column; height: 90vh; }
+    #messages { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; }
+    li { padding: 10px; margin: 5px 0; background: #dcf8c6; border-radius: 8px; max-width: 70%; }
+    #input-area { display: flex; padding: 10px; background: #f0f0f0; }
+    input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
+    button { margin-left: 10px; padding: 10px; border: none; background: #25D366; color: white; border-radius: 20px; }
 </style>
 ```
 
@@ -156,16 +22,14 @@
 
 <body>
 
-<header>
-    💬 Private Chat
-</header>
+<header>💬 Private Chat</header>
 
 <div id="chat-container">
     <ul id="messages"></ul>
 
 ```
 <div id="input-area">
-    <input id="input" placeholder="Type a message..." autocomplete="off" />
+    <input id="input" placeholder="Type message..." />
     <button onclick="sendMessage()">Send</button>
 </div>
 ```
@@ -175,54 +39,46 @@
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
-    const socket = io();
+    const socket = io({
+        transports: ["websocket"]   // IMPORTANT FIX
+    });
+
     const messagesList = document.getElementById("messages");
 
-    // 🔹 Load old messages from MongoDB
-    socket.on("load messages", function(messages) {
-        messagesList.innerHTML = ""; // clear existing
-
-        messages.forEach(msg => {
-            addMessage(msg.text);
-        });
-
-        scrollToBottom();
+    // ✅ CONFIRM CONNECTION
+    socket.on("connect", () => {
+        console.log("✅ Connected:", socket.id);
     });
 
-    // 🔹 Receive new message
+    // ✅ RECEIVE MESSAGE
     socket.on("chat message", function(msg) {
+        console.log("📩 Received:", msg);
         addMessage(msg);
-        scrollToBottom();
     });
 
-    // 🔹 Add message to UI
+    // ✅ ADD MESSAGE TO UI
     function addMessage(text) {
         const li = document.createElement("li");
         li.textContent = text;
         messagesList.appendChild(li);
+        messagesList.scrollTop = messagesList.scrollHeight;
     }
 
-    // 🔹 Send message
+    // ✅ SEND MESSAGE
     function sendMessage() {
         const input = document.getElementById("input");
 
         if (input.value.trim() !== "") {
+            console.log("📤 Sending:", input.value);
             socket.emit("chat message", input.value);
             input.value = "";
         }
     }
 
-    // 🔹 Enter key support
+    // Enter key support
     document.getElementById("input").addEventListener("keypress", function(e) {
-        if (e.key === "Enter") {
-            sendMessage();
-        }
+        if (e.key === "Enter") sendMessage();
     });
-
-    // 🔹 Auto scroll
-    function scrollToBottom() {
-        messagesList.scrollTop = messagesList.scrollHeight;
-    }
 </script>
 
 </body>
