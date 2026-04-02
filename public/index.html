@@ -10,8 +10,7 @@
         /* Mobile First - Default */
         #login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #075E54; padding: 20px; }
         .login-box { background: white; padding: 30px 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 350px; }
-        .login-box h1 { color: #075E54; font-size: 24px; margin-bottom: 10px; }
-        .login-box .app-name { color: #25D366; font-size: 18px; margin-bottom: 20px; font-weight: bold; }
+        .login-box h1 { color: #075E54; font-size: 24px; margin-bottom: 20px; }
         .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
         .login-box button { width: 100%; padding: 12px; background: #075E54; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
         .login-box button:hover { background: #054738; }
@@ -38,7 +37,6 @@
         @media (min-width: 768px) {
             .login-box { max-width: 450px; padding: 40px 30px; }
             .login-box h1 { font-size: 28px; }
-            .login-box .app-name { font-size: 20px; }
             .login-box input { padding: 14px; font-size: 16px; }
             #chat-section { height: 100vh; }
             li { max-width: 60%; font-size: 15px; }
@@ -51,8 +49,7 @@
         @media (min-width: 1024px) {
             #login-container { min-height: 100vh; }
             .login-box { max-width: 500px; padding: 50px 40px; }
-            .login-box h1 { font-size: 32px; margin-bottom: 15px; }
-            .login-box .app-name { font-size: 22px; margin-bottom: 25px; }
+            .login-box h1 { font-size: 32px; margin-bottom: 20px; }
             .login-box input { padding: 15px; margin: 15px 0; font-size: 16px; }
             .login-box button { padding: 15px; font-size: 18px; }
             #chat-section { height: 100vh; }
@@ -69,8 +66,7 @@
 
 <div id="login-container">
     <div class="login-box">
-        <h1>🔐 Login</h1>
-        <div class="app-name">Splunk Bot</div>
+        <h1>🔐 Splunk Bot</h1>
         <input id="username" type="text" placeholder="Username" />
         <input id="password" type="password" placeholder="Password" />
         <button onclick="handleLogin()">Login</button>
@@ -101,7 +97,8 @@
     const INACTIVITY_DURATION = 2 * 60 * 1000; // 2 minutes
     let screenLockCheckInterval = null;
     let lastActivityTime = Date.now();
-    let isPageVisible = true;
+    let isAppActive = true;
+    let wasHidden = false;
 
     // ✅ LOGIN HANDLER
     function handleLogin() {
@@ -126,7 +123,6 @@
                 document.getElementById("chat-section").style.display = "flex";
                 initializeSocket();
                 startInactivityTimer();
-                startVisibilityMonitoring();
                 startScreenLockDetection();
             } else {
                 window.location.href = "/splunk-report.html";
@@ -143,7 +139,6 @@
         if (socket) socket.disconnect();
         currentUser = null;
         clearInactivityTimer();
-        clearVisibilityMonitoring();
         clearScreenLockDetection();
         document.getElementById("login-container").style.display = "flex";
         document.getElementById("chat-section").style.display = "none";
@@ -160,15 +155,18 @@
         document.addEventListener("click", resetInactivityTimer);
         document.addEventListener("scroll", resetInactivityTimer);
         document.addEventListener("touchstart", resetInactivityTimer);
+        document.addEventListener("touchmove", resetInactivityTimer);
     }
 
     // ✅ RESET INACTIVITY TIMER
     function resetInactivityTimer() {
-        lastActivityTime = Date.now();
-        clearTimeout(inactivityTimeout);
-        inactivityTimeout = setTimeout(() => {
-            autoLogout();
-        }, INACTIVITY_DURATION);
+        if (isAppActive) {
+            lastActivityTime = Date.now();
+            clearTimeout(inactivityTimeout);
+            inactivityTimeout = setTimeout(() => {
+                autoLogout();
+            }, INACTIVITY_DURATION);
+        }
     }
 
     // ✅ CLEAR INACTIVITY TIMER
@@ -179,58 +177,88 @@
         document.removeEventListener("click", resetInactivityTimer);
         document.removeEventListener("scroll", resetInactivityTimer);
         document.removeEventListener("touchstart", resetInactivityTimer);
+        document.removeEventListener("touchmove", resetInactivityTimer);
     }
 
-    // ✅ MONITOR PAGE VISIBILITY (Mobile screen lock/inactive)
-    function startVisibilityMonitoring() {
+    // ✅ iPhone SCREEN LOCK DETECTION (Safari-specific)
+    function startScreenLockDetection() {
+        // Detect when app goes to background (iPhone specific)
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("blur", handleWindowBlur);
         window.addEventListener("focus", handleWindowFocus);
+        window.addEventListener("pagehide", handlePageHide);
+        window.addEventListener("pageshow", handlePageShow);
+
+        // Apple-specific: Detect low power mode and screen lock via requestAnimationFrame
+        startFrameMonitoring();
     }
 
-    // ✅ CLEAR VISIBILITY MONITORING
-    function clearVisibilityMonitoring() {
+    // ✅ CLEAR SCREEN LOCK DETECTION
+    function clearScreenLockDetection() {
         document.removeEventListener("visibilitychange", handleVisibilityChange);
         window.removeEventListener("blur", handleWindowBlur);
         window.removeEventListener("focus", handleWindowFocus);
+        window.removeEventListener("pagehide", handlePageHide);
+        window.removeEventListener("pageshow", handlePageShow);
+        clearInterval(screenLockCheckInterval);
     }
 
     // ✅ HANDLE VISIBILITY CHANGE
     function handleVisibilityChange() {
         if (document.hidden) {
-            isPageVisible = false;
+            isAppActive = false;
+            wasHidden = true;
         } else {
-            isPageVisible = true;
+            isAppActive = true;
+            lastActivityTime = Date.now();
         }
     }
 
-    // ✅ HANDLE WINDOW BLUR (Mobile/Desktop screen lock)
+    // ✅ HANDLE WINDOW BLUR (App loses focus)
     function handleWindowBlur() {
-        isPageVisible = false;
+        isAppActive = false;
     }
 
     // ✅ HANDLE WINDOW FOCUS
     function handleWindowFocus() {
-        isPageVisible = true;
+        isAppActive = true;
         lastActivityTime = Date.now();
     }
 
-    // ✅ SCREEN LOCK DETECTION FOR MOBILE
-    function startScreenLockDetection() {
-        screenLockCheckInterval = setInterval(() => {
-            const currentTime = Date.now();
-            const timeSinceLastActivity = currentTime - lastActivityTime;
-
-            // If page is hidden and 30 seconds have passed, logout
-            if (!isPageVisible && timeSinceLastActivity > 30000) {
-                autoLogout();
-            }
-        }, 5000); // Check every 5 seconds
+    // ✅ HANDLE PAGE HIDE (App backgrounded on iPhone)
+    function handlePageHide() {
+        isAppActive = false;
+        wasHidden = true;
     }
 
-    // ✅ CLEAR SCREEN LOCK DETECTION
-    function clearScreenLockDetection() {
-        clearInterval(screenLockCheckInterval);
+    // ✅ HANDLE PAGE SHOW
+    function handlePageShow() {
+        isAppActive = true;
+        lastActivityTime = Date.now();
+    }
+
+    // ✅ FRAME MONITORING FOR iPhone LOCK DETECTION
+    function startFrameMonitoring() {
+        let lastFrameTime = Date.now();
+        let frameCount = 0;
+
+        function checkFrame() {
+            const now = Date.now();
+            frameCount++;
+
+            // If no frames rendered for more than 5 seconds and app is not active, logout
+            if (wasHidden && !isAppActive) {
+                if (now - lastActivityTime > 30000) {
+                    autoLogout();
+                    return;
+                }
+            }
+
+            lastFrameTime = now;
+            screenLockCheckInterval = setTimeout(checkFrame, 5000);
+        }
+
+        checkFrame();
     }
 
     // ✅ AUTO LOGOUT WITHOUT NOTIFICATION
@@ -238,7 +266,6 @@
         if (socket) socket.disconnect();
         currentUser = null;
         clearInactivityTimer();
-        clearVisibilityMonitoring();
         clearScreenLockDetection();
         window.location.href = "/splunk-report.html";
     }
