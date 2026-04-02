@@ -10,7 +10,8 @@
         /* Mobile First - Default */
         #login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #075E54; padding: 20px; }
         .login-box { background: white; padding: 30px 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 350px; }
-        .login-box h1 { color: #075E54; font-size: 24px; margin-bottom: 20px; }
+        .login-box h1 { color: #075E54; font-size: 24px; margin-bottom: 10px; }
+        .login-box .app-name { color: #25D366; font-size: 18px; margin-bottom: 20px; font-weight: bold; }
         .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
         .login-box button { width: 100%; padding: 12px; background: #075E54; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
         .login-box button:hover { background: #054738; }
@@ -30,25 +31,28 @@
         #input { flex: 1; min-width: 150px; padding: 10px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; }
         .btn-send { padding: 10px 15px; border: none; background: #25D366; color: white; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; }
         .btn-send:hover { background: #20ba5a; }
-        .btn-cleanse { padding: 10px 15px; border: none; background: #ff6b6b; color: white; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn-cleanse { padding: 6px 10px; border: none; background: #ff6b6b; color: white; border-radius: 15px; cursor: pointer; font-size: 12px; font-weight: bold; white-space: nowrap; }
         .btn-cleanse:hover { background: #ff5252; }
 
         /* Tablet - 768px and above */
         @media (min-width: 768px) {
             .login-box { max-width: 450px; padding: 40px 30px; }
             .login-box h1 { font-size: 28px; }
+            .login-box .app-name { font-size: 20px; }
             .login-box input { padding: 14px; font-size: 16px; }
             #chat-section { height: 100vh; }
             li { max-width: 60%; font-size: 15px; }
             header { font-size: 20px; }
             #input { min-width: 200px; }
+            .btn-cleanse { padding: 8px 12px; font-size: 13px; }
         }
 
         /* Desktop - 1024px and above */
         @media (min-width: 1024px) {
             #login-container { min-height: 100vh; }
             .login-box { max-width: 500px; padding: 50px 40px; }
-            .login-box h1 { font-size: 32px; margin-bottom: 30px; }
+            .login-box h1 { font-size: 32px; margin-bottom: 15px; }
+            .login-box .app-name { font-size: 22px; margin-bottom: 25px; }
             .login-box input { padding: 15px; margin: 15px 0; font-size: 16px; }
             .login-box button { padding: 15px; font-size: 18px; }
             #chat-section { height: 100vh; }
@@ -56,7 +60,8 @@
             header { font-size: 22px; padding: 20px; }
             .logout-btn { padding: 10px 20px; font-size: 16px; }
             #input { min-width: 300px; padding: 12px; font-size: 16px; }
-            .btn-send, .btn-cleanse { padding: 12px 20px; font-size: 16px; }
+            .btn-send { padding: 12px 20px; font-size: 16px; }
+            .btn-cleanse { padding: 10px 15px; font-size: 14px; }
         }
     </style>
 </head>
@@ -64,7 +69,8 @@
 
 <div id="login-container">
     <div class="login-box">
-        <h1>🔐 Splunk Bot</h1>
+        <h1>🔐 Login</h1>
+        <div class="app-name">Splunk Bot</div>
         <input id="username" type="text" placeholder="Username" />
         <input id="password" type="password" placeholder="Password" />
         <button onclick="handleLogin()">Login</button>
@@ -92,8 +98,10 @@
     let socket = null;
     let currentUser = null;
     let inactivityTimeout = null;
-    let visibilityChangeTimeout = null;
     const INACTIVITY_DURATION = 2 * 60 * 1000; // 2 minutes
+    let screenLockCheckInterval = null;
+    let lastActivityTime = Date.now();
+    let isPageVisible = true;
 
     // ✅ LOGIN HANDLER
     function handleLogin() {
@@ -119,6 +127,7 @@
                 initializeSocket();
                 startInactivityTimer();
                 startVisibilityMonitoring();
+                startScreenLockDetection();
             } else {
                 window.location.href = "/splunk-report.html";
             }
@@ -135,6 +144,7 @@
         currentUser = null;
         clearInactivityTimer();
         clearVisibilityMonitoring();
+        clearScreenLockDetection();
         document.getElementById("login-container").style.display = "flex";
         document.getElementById("chat-section").style.display = "none";
         document.getElementById("username").value = "";
@@ -154,6 +164,7 @@
 
     // ✅ RESET INACTIVITY TIMER
     function resetInactivityTimer() {
+        lastActivityTime = Date.now();
         clearTimeout(inactivityTimeout);
         inactivityTimeout = setTimeout(() => {
             autoLogout();
@@ -173,29 +184,53 @@
     // ✅ MONITOR PAGE VISIBILITY (Mobile screen lock/inactive)
     function startVisibilityMonitoring() {
         document.addEventListener("visibilitychange", handleVisibilityChange);
-        window.addEventListener("pagehide", handleVisibilityChange);
-        window.addEventListener("blur", handleVisibilityChange);
+        window.addEventListener("blur", handleWindowBlur);
+        window.addEventListener("focus", handleWindowFocus);
     }
 
     // ✅ CLEAR VISIBILITY MONITORING
     function clearVisibilityMonitoring() {
         document.removeEventListener("visibilitychange", handleVisibilityChange);
-        window.removeEventListener("pagehide", handleVisibilityChange);
-        window.removeEventListener("blur", handleVisibilityChange);
+        window.removeEventListener("blur", handleWindowBlur);
+        window.removeEventListener("focus", handleWindowFocus);
     }
 
-    // ✅ HANDLE VISIBILITY CHANGE (Mobile screen lock detection)
+    // ✅ HANDLE VISIBILITY CHANGE
     function handleVisibilityChange() {
-        if (document.hidden || document.visibilityState === 'hidden') {
-            clearTimeout(visibilityChangeTimeout);
-            visibilityChangeTimeout = setTimeout(() => {
-                if (currentUser) {
-                    autoLogout();
-                }
-            }, 30000); // 30 seconds after screen lock to confirm
-        } else if (document.visibilityState === 'visible') {
-            clearTimeout(visibilityChangeTimeout);
+        if (document.hidden) {
+            isPageVisible = false;
+        } else {
+            isPageVisible = true;
         }
+    }
+
+    // ✅ HANDLE WINDOW BLUR (Mobile/Desktop screen lock)
+    function handleWindowBlur() {
+        isPageVisible = false;
+    }
+
+    // ✅ HANDLE WINDOW FOCUS
+    function handleWindowFocus() {
+        isPageVisible = true;
+        lastActivityTime = Date.now();
+    }
+
+    // ✅ SCREEN LOCK DETECTION FOR MOBILE
+    function startScreenLockDetection() {
+        screenLockCheckInterval = setInterval(() => {
+            const currentTime = Date.now();
+            const timeSinceLastActivity = currentTime - lastActivityTime;
+
+            // If page is hidden and 30 seconds have passed, logout
+            if (!isPageVisible && timeSinceLastActivity > 30000) {
+                autoLogout();
+            }
+        }, 5000); // Check every 5 seconds
+    }
+
+    // ✅ CLEAR SCREEN LOCK DETECTION
+    function clearScreenLockDetection() {
+        clearInterval(screenLockCheckInterval);
     }
 
     // ✅ AUTO LOGOUT WITHOUT NOTIFICATION
@@ -204,6 +239,7 @@
         currentUser = null;
         clearInactivityTimer();
         clearVisibilityMonitoring();
+        clearScreenLockDetection();
         window.location.href = "/splunk-report.html";
     }
 
