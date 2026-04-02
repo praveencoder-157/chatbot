@@ -1,73 +1,211 @@
 <!DOCTYPE html>
-
 <html>
 <head>
     <title>Chat Bot</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-```
-<style>
-    body { font-family: Arial; background: #ece5dd; margin: 0; }
-    header { background: #075E54; color: white; padding: 15px; text-align: center; }
-    #chat-container { display: flex; flex-direction: column; height: 90vh; }
-    #messages { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; }
-    li { padding: 10px; margin: 5px 0; background: #dcf8c6; border-radius: 8px; max-width: 70%; }
-    #input-area { display: flex; padding: 10px; background: #f0f0f0; }
-    input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
-    button { margin-left: 10px; padding: 10px; border: none; background: #25D366; color: white; border-radius: 20px; }
-</style>
-```
-
+    <style>
+        body { font-family: Arial; background: #ece5dd; margin: 0; }
+        header { background: #075E54; color: white; padding: 15px; text-align: center; display: flex; justify-content: space-between; align-items: center; }
+        .logout-btn { background: #ff6b6b; padding: 8px 15px; border: none; color: white; border-radius: 5px; cursor: pointer; }
+        .logout-btn:hover { background: #ff5252; }
+        #chat-container { display: flex; flex-direction: column; height: 90vh; }
+        #messages { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; }
+        li { padding: 10px; margin: 5px 0; border-radius: 8px; max-width: 70%; word-wrap: break-word; }
+        .sender { background: #dcf8c6; margin-left: auto; margin-right: 0; text-align: right; }
+        .receiver { background: #e1f5fe; margin-right: auto; margin-left: 0; text-align: left; }
+        #input-area { display: flex; padding: 10px; background: #f0f0f0; }
+        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
+        button { margin-left: 10px; padding: 10px; border: none; background: #25D366; color: white; border-radius: 20px; cursor: pointer; }
+        button:hover { background: #20ba5a; }
+        .delete-btn { background: #ff6b6b; }
+        .delete-btn:hover { background: #ff5252; }
+        #login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: #075E54; }
+        .login-box { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        .login-box h1 { color: #075E54; }
+        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .login-box button { width: 100%; padding: 12px; background: #075E54; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .login-box button:hover { background: #054738; }
+        .session-timer { background: #fff3cd; color: #856404; padding: 10px; text-align: center; font-weight: bold; display: none; }
+    </style>
 </head>
-
 <body>
 
-<header>💬 Private Chat</header>
-
-<div id="chat-container">
-    <ul id="messages"></ul>
-
-```
-<div id="input-area">
-    <input id="input" placeholder="Type message..." />
-    <button onclick="sendMessage()">Send</button>
+<div id="login-container">
+    <div class="login-box">
+        <h1>🔐 Login</h1>
+        <input id="username" type="text" placeholder="Username" />
+        <input id="password" type="password" placeholder="Password" />
+        <button onclick="handleLogin()">Login</button>
+    </div>
 </div>
-```
 
+<div id="chat-section" style="display: none;">
+    <div class="session-timer" id="session-timer">⏱️ Session expires in: <span id="timer-text">2:00</span></div>
+    <header>
+        <span>💬 Private Chat</span>
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+    </header>
+
+    <div id="chat-container">
+        <ul id="messages"></ul>
+        <div id="input-area">
+            <input id="input" placeholder="Type message..." />
+            <button onclick="sendMessage()">Send</button>
+            <button class="delete-btn" onclick="deleteHistory()">Delete History</button>
+        </div>
+    </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-
 <script>
-    const socket = io({
-        transports: ["websocket"]   // IMPORTANT FIX
-    });
+    let socket = null;
+    let currentUser = null;
+    let inactivityTimeout = null;
+    let inactivityTimer = null;
+    const INACTIVITY_DURATION = 2 * 60 * 1000; // 2 minutes in milliseconds
 
-    const messagesList = document.getElementById("messages");
+    // ✅ LOGIN HANDLER
+    function handleLogin() {
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
 
-    socket.on("load messages", function(messages) {
-        messages.forEach(msg => {
-            addMessage(msg.text);
+        if (!username || !password) {
+            alert("Please enter username and password");
+            return;
+        }
+
+        // Send login request to server
+        fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                currentUser = username;
+                document.getElementById("login-container").style.display = "none";
+                document.getElementById("chat-section").style.display = "block";
+                initializeSocket();
+                startInactivityTimer();
+            } else {
+                window.location.href = "/splunk-report.html";
+            }
+        })
+        .catch(err => {
+            console.error("Login error:", err);
+            window.location.href = "/splunk-report.html";
         });
-    });
+    }
 
-    // ✅ CONFIRM CONNECTION
-    socket.on("connect", () => {
-        console.log("✅ Connected:", socket.id);
-    });
+    // ✅ LOGOUT HANDLER
+    function handleLogout() {
+        if (socket) socket.disconnect();
+        currentUser = null;
+        clearInactivityTimer();
+        document.getElementById("login-container").style.display = "flex";
+        document.getElementById("chat-section").style.display = "none";
+        document.getElementById("username").value = "";
+        document.getElementById("password").value = "";
+        document.getElementById("messages").innerHTML = "";
+    }
 
-    // ✅ RECEIVE MESSAGE
-    socket.on("chat message", function(msg) {
-        console.log("📩 Received:", msg);
-        addMessage(msg);
-    });
+    // ✅ START INACTIVITY TIMER
+    function startInactivityTimer() {
+        document.getElementById("session-timer").style.display = "block";
+        resetInactivityTimer();
+        
+        // Add event listeners for user activity
+        document.addEventListener("mousemove", resetInactivityTimer);
+        document.addEventListener("keypress", resetInactivityTimer);
+        document.addEventListener("click", resetInactivityTimer);
+        document.addEventListener("scroll", resetInactivityTimer);
+        document.addEventListener("touchstart", resetInactivityTimer);
+    }
 
-    // ✅ ADD MESSAGE TO UI
-    function addMessage(text) {
+    // ✅ RESET INACTIVITY TIMER
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimeout);
+        clearInterval(inactivityTimer);
+        
+        let timeLeft = INACTIVITY_DURATION / 1000; // Convert to seconds
+
+        // Update timer display every second
+        inactivityTimer = setInterval(() => {
+            timeLeft--;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById("timer-text").textContent = 
+                `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+            if (timeLeft <= 0) {
+                clearInterval(inactivityTimer);
+            }
+        }, 1000);
+
+        // Auto logout after inactivity duration
+        inactivityTimeout = setTimeout(() => {
+            console.log("⏱️ Session expired due to inactivity");
+            alert("Your session has expired due to inactivity. Please login again.");
+            handleLogout();
+        }, INACTIVITY_DURATION);
+    }
+
+    // ✅ CLEAR INACTIVITY TIMER
+    function clearInactivityTimer() {
+        clearTimeout(inactivityTimeout);
+        clearInterval(inactivityTimer);
+        document.getElementById("session-timer").style.display = "none";
+        
+        document.removeEventListener("mousemove", resetInactivityTimer);
+        document.removeEventListener("keypress", resetInactivityTimer);
+        document.removeEventListener("click", resetInactivityTimer);
+        document.removeEventListener("scroll", resetInactivityTimer);
+        document.removeEventListener("touchstart", resetInactivityTimer);
+    }
+
+    // ✅ INITIALIZE SOCKET
+    function initializeSocket() {
+        socket = io({
+            transports: ["websocket"],
+            query: { username: currentUser }
+        });
+
+        const messagesList = document.getElementById("messages");
+
+        socket.on("load messages", function(messages) {
+            messages.forEach(msg => {
+                addMessage(msg.text, msg.sender);
+            });
+        });
+
+        socket.on("connect", () => {
+            console.log("✅ Connected:", socket.id);
+        });
+
+        socket.on("chat message", function(msg) {
+            console.log("📩 Received:", msg);
+            addMessage(msg.text, msg.sender);
+        });
+
+        socket.on("disconnect", () => {
+            console.log("❌ Disconnected");
+        });
+    }
+
+    // ✅ ADD MESSAGE WITH ALIGNMENT
+    function addMessage(text, sender) {
         const li = document.createElement("li");
         li.textContent = text;
-        messagesList.appendChild(li);
-        messagesList.scrollTop = messagesList.scrollHeight;
+        
+        if (sender === currentUser) {
+            li.className = "sender";
+        } else {
+            li.className = "receiver";
+        }
+        
+        document.getElementById("messages").appendChild(li);
+        document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
     }
 
     // ✅ SEND MESSAGE
@@ -76,14 +214,41 @@
 
         if (input.value.trim() !== "") {
             console.log("📤 Sending:", input.value);
-            socket.emit("chat message", input.value);
+            socket.emit("chat message", {
+                text: input.value,
+                sender: currentUser
+            });
             input.value = "";
+            resetInactivityTimer(); // Reset timer on message send
+        }
+    }
+
+    // ✅ DELETE CHAT HISTORY
+    function deleteHistory() {
+        if (confirm("Are you sure you want to delete all chat history? This cannot be undone.")) {
+            fetch("/api/delete-history", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: currentUser })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById("messages").innerHTML = "";
+                    socket.emit("history deleted");
+                    alert("Chat history deleted");
+                    resetInactivityTimer(); // Reset timer on action
+                }
+            })
+            .catch(err => console.error("Delete error:", err));
         }
     }
 
     // Enter key support
-    document.getElementById("input").addEventListener("keypress", function(e) {
-        if (e.key === "Enter") sendMessage();
+    document.addEventListener("keypress", function(e) {
+        if (e.key === "Enter" && e.target.id === "input") {
+            sendMessage();
+        }
     });
 </script>
 
