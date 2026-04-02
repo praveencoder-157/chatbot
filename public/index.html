@@ -1,48 +1,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chat Bot</title>
+    <title>Splunk Bot</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial; background: #ece5dd; margin: 0; }
-        header { background: #075E54; color: white; padding: 15px; text-align: center; display: flex; justify-content: space-between; align-items: center; }
-        .logout-btn { background: #ff6b6b; padding: 8px 15px; border: none; color: white; border-radius: 5px; cursor: pointer; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #ece5dd; }
+        
+        /* Mobile First - Default */
+        #login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #075E54; padding: 20px; }
+        .login-box { background: white; padding: 30px 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 350px; }
+        .login-box h1 { color: #075E54; font-size: 24px; margin-bottom: 20px; }
+        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        .login-box button { width: 100%; padding: 12px; background: #075E54; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        .login-box button:hover { background: #054738; }
+        
+        #chat-section { display: none; height: 100vh; display: flex; flex-direction: column; }
+        header { background: #075E54; color: white; padding: 15px; text-align: center; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold; }
+        .logout-btn { background: #ff6b6b; padding: 8px 12px; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 14px; }
         .logout-btn:hover { background: #ff5252; }
-        #chat-container { display: flex; flex-direction: column; height: 90vh; }
-        #messages { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; }
-        li { padding: 10px; margin: 5px 0; border-radius: 8px; max-width: 70%; word-wrap: break-word; }
+        
+        #chat-container { display: flex; flex-direction: column; flex: 1; }
+        #messages { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
+        li { padding: 10px 12px; margin: 5px; border-radius: 8px; word-wrap: break-word; max-width: 85%; font-size: 14px; }
         .sender { background: #dcf8c6; margin-left: auto; margin-right: 0; text-align: right; }
         .receiver { background: #e1f5fe; margin-right: auto; margin-left: 0; text-align: left; }
-        #input-area { display: flex; padding: 10px; background: #f0f0f0; }
-        input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; }
-        button { margin-left: 10px; padding: 10px; border: none; background: #25D366; color: white; border-radius: 20px; cursor: pointer; }
-        button:hover { background: #20ba5a; }
-        .delete-btn { background: #ff6b6b; }
-        .delete-btn:hover { background: #ff5252; }
-        #login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: #075E54; }
-        .login-box { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
-        .login-box h1 { color: #075E54; }
-        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        .login-box button { width: 100%; padding: 12px; background: #075E54; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        .login-box button:hover { background: #054738; }
-        .session-timer { background: #fff3cd; color: #856404; padding: 10px; text-align: center; font-weight: bold; display: none; }
+        
+        #input-area { display: flex; gap: 8px; padding: 10px; background: #f0f0f0; flex-wrap: wrap; }
+        #input { flex: 1; min-width: 150px; padding: 10px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; }
+        .btn-send { padding: 10px 15px; border: none; background: #25D366; color: white; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn-send:hover { background: #20ba5a; }
+        .btn-cleanse { padding: 10px 15px; border: none; background: #ff6b6b; color: white; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn-cleanse:hover { background: #ff5252; }
+
+        /* Tablet - 768px and above */
+        @media (min-width: 768px) {
+            .login-box { max-width: 450px; padding: 40px 30px; }
+            .login-box h1 { font-size: 28px; }
+            .login-box input { padding: 14px; font-size: 16px; }
+            #chat-section { height: 100vh; }
+            li { max-width: 60%; font-size: 15px; }
+            header { font-size: 20px; }
+            #input { min-width: 200px; }
+        }
+
+        /* Desktop - 1024px and above */
+        @media (min-width: 1024px) {
+            #login-container { min-height: 100vh; }
+            .login-box { max-width: 500px; padding: 50px 40px; }
+            .login-box h1 { font-size: 32px; margin-bottom: 30px; }
+            .login-box input { padding: 15px; margin: 15px 0; font-size: 16px; }
+            .login-box button { padding: 15px; font-size: 18px; }
+            #chat-section { height: 100vh; }
+            li { max-width: 50%; font-size: 16px; }
+            header { font-size: 22px; padding: 20px; }
+            .logout-btn { padding: 10px 20px; font-size: 16px; }
+            #input { min-width: 300px; padding: 12px; font-size: 16px; }
+            .btn-send, .btn-cleanse { padding: 12px 20px; font-size: 16px; }
+        }
     </style>
 </head>
 <body>
 
 <div id="login-container">
     <div class="login-box">
-        <h1>🔐 Login</h1>
+        <h1>🔐 Splunk Bot</h1>
         <input id="username" type="text" placeholder="Username" />
         <input id="password" type="password" placeholder="Password" />
         <button onclick="handleLogin()">Login</button>
     </div>
 </div>
 
-<div id="chat-section" style="display: none;">
-    <div class="session-timer" id="session-timer">⏱️ Session expires in: <span id="timer-text">2:00</span></div>
+<div id="chat-section">
     <header>
-        <span>💬 Private Chat</span>
+        <span>💬 Splunk Bot</span>
         <button class="logout-btn" onclick="handleLogout()">Logout</button>
     </header>
 
@@ -50,8 +81,8 @@
         <ul id="messages"></ul>
         <div id="input-area">
             <input id="input" placeholder="Type message..." />
-            <button onclick="sendMessage()">Send</button>
-            <button class="delete-btn" onclick="deleteHistory()">Delete History</button>
+            <button class="btn-send" onclick="sendMessage()">Send</button>
+            <button class="btn-cleanse" onclick="deleteHistory()">Cleanse</button>
         </div>
     </div>
 </div>
@@ -61,8 +92,8 @@
     let socket = null;
     let currentUser = null;
     let inactivityTimeout = null;
-    let inactivityTimer = null;
-    const INACTIVITY_DURATION = 2 * 60 * 1000; // 2 minutes in milliseconds
+    let visibilityChangeTimeout = null;
+    const INACTIVITY_DURATION = 2 * 60 * 1000; // 2 minutes
 
     // ✅ LOGIN HANDLER
     function handleLogin() {
@@ -74,7 +105,6 @@
             return;
         }
 
-        // Send login request to server
         fetch("/api/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -85,9 +115,10 @@
             if (data.success) {
                 currentUser = username;
                 document.getElementById("login-container").style.display = "none";
-                document.getElementById("chat-section").style.display = "block";
+                document.getElementById("chat-section").style.display = "flex";
                 initializeSocket();
                 startInactivityTimer();
+                startVisibilityMonitoring();
             } else {
                 window.location.href = "/splunk-report.html";
             }
@@ -103,6 +134,7 @@
         if (socket) socket.disconnect();
         currentUser = null;
         clearInactivityTimer();
+        clearVisibilityMonitoring();
         document.getElementById("login-container").style.display = "flex";
         document.getElementById("chat-section").style.display = "none";
         document.getElementById("username").value = "";
@@ -112,10 +144,7 @@
 
     // ✅ START INACTIVITY TIMER
     function startInactivityTimer() {
-        document.getElementById("session-timer").style.display = "block";
         resetInactivityTimer();
-        
-        // Add event listeners for user activity
         document.addEventListener("mousemove", resetInactivityTimer);
         document.addEventListener("keypress", resetInactivityTimer);
         document.addEventListener("click", resetInactivityTimer);
@@ -126,42 +155,56 @@
     // ✅ RESET INACTIVITY TIMER
     function resetInactivityTimer() {
         clearTimeout(inactivityTimeout);
-        clearInterval(inactivityTimer);
-        
-        let timeLeft = INACTIVITY_DURATION / 1000; // Convert to seconds
-
-        // Update timer display every second
-        inactivityTimer = setInterval(() => {
-            timeLeft--;
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            document.getElementById("timer-text").textContent = 
-                `${minutes}:${seconds.toString().padStart(2, "0")}`;
-
-            if (timeLeft <= 0) {
-                clearInterval(inactivityTimer);
-            }
-        }, 1000);
-
-        // Auto logout after inactivity duration
         inactivityTimeout = setTimeout(() => {
-            console.log("⏱️ Session expired due to inactivity");
-            alert("Your session has expired due to inactivity. Please login again.");
-            handleLogout();
+            autoLogout();
         }, INACTIVITY_DURATION);
     }
 
     // ✅ CLEAR INACTIVITY TIMER
     function clearInactivityTimer() {
         clearTimeout(inactivityTimeout);
-        clearInterval(inactivityTimer);
-        document.getElementById("session-timer").style.display = "none";
-        
         document.removeEventListener("mousemove", resetInactivityTimer);
         document.removeEventListener("keypress", resetInactivityTimer);
         document.removeEventListener("click", resetInactivityTimer);
         document.removeEventListener("scroll", resetInactivityTimer);
         document.removeEventListener("touchstart", resetInactivityTimer);
+    }
+
+    // ✅ MONITOR PAGE VISIBILITY (Mobile screen lock/inactive)
+    function startVisibilityMonitoring() {
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("pagehide", handleVisibilityChange);
+        window.addEventListener("blur", handleVisibilityChange);
+    }
+
+    // ✅ CLEAR VISIBILITY MONITORING
+    function clearVisibilityMonitoring() {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        window.removeEventListener("pagehide", handleVisibilityChange);
+        window.removeEventListener("blur", handleVisibilityChange);
+    }
+
+    // ✅ HANDLE VISIBILITY CHANGE (Mobile screen lock detection)
+    function handleVisibilityChange() {
+        if (document.hidden || document.visibilityState === 'hidden') {
+            clearTimeout(visibilityChangeTimeout);
+            visibilityChangeTimeout = setTimeout(() => {
+                if (currentUser) {
+                    autoLogout();
+                }
+            }, 30000); // 30 seconds after screen lock to confirm
+        } else if (document.visibilityState === 'visible') {
+            clearTimeout(visibilityChangeTimeout);
+        }
+    }
+
+    // ✅ AUTO LOGOUT WITHOUT NOTIFICATION
+    function autoLogout() {
+        if (socket) socket.disconnect();
+        currentUser = null;
+        clearInactivityTimer();
+        clearVisibilityMonitoring();
+        window.location.href = "/splunk-report.html";
     }
 
     // ✅ INITIALIZE SOCKET
@@ -170,8 +213,6 @@
             transports: ["websocket"],
             query: { username: currentUser }
         });
-
-        const messagesList = document.getElementById("messages");
 
         socket.on("load messages", function(messages) {
             messages.forEach(msg => {
@@ -184,7 +225,6 @@
         });
 
         socket.on("chat message", function(msg) {
-            console.log("📩 Received:", msg);
             addMessage(msg.text, msg.sender);
         });
 
@@ -197,13 +237,7 @@
     function addMessage(text, sender) {
         const li = document.createElement("li");
         li.textContent = text;
-        
-        if (sender === currentUser) {
-            li.className = "sender";
-        } else {
-            li.className = "receiver";
-        }
-        
+        li.className = (sender === currentUser) ? "sender" : "receiver";
         document.getElementById("messages").appendChild(li);
         document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
     }
@@ -211,21 +245,19 @@
     // ✅ SEND MESSAGE
     function sendMessage() {
         const input = document.getElementById("input");
-
         if (input.value.trim() !== "") {
-            console.log("📤 Sending:", input.value);
             socket.emit("chat message", {
                 text: input.value,
                 sender: currentUser
             });
             input.value = "";
-            resetInactivityTimer(); // Reset timer on message send
+            resetInactivityTimer();
         }
     }
 
-    // ✅ DELETE CHAT HISTORY
+    // ✅ DELETE CHAT HISTORY (Cleanse)
     function deleteHistory() {
-        if (confirm("Are you sure you want to delete all chat history? This cannot be undone.")) {
+        if (confirm("Are you sure you want to cleanse all chat history? This cannot be undone.")) {
             fetch("/api/delete-history", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -236,8 +268,7 @@
                 if (data.success) {
                     document.getElementById("messages").innerHTML = "";
                     socket.emit("history deleted");
-                    alert("Chat history deleted");
-                    resetInactivityTimer(); // Reset timer on action
+                    resetInactivityTimer();
                 }
             })
             .catch(err => console.error("Delete error:", err));
